@@ -22,6 +22,7 @@ def generate_launch_description():
     rviz = LaunchConfiguration('rviz', default='false')
     pointcloud_topic = LaunchConfiguration('pointcloud_topic', default='points_raw')
     imu_topic = LaunchConfiguration('imu_topic', default='imu_raw')
+    params_file = LaunchConfiguration('params_file', default=PathJoinSubstitution([current_pkg, 'cfg', 'dlio.yaml']))
 
     # Define arguments
     declare_rviz_arg = DeclareLaunchArgument(
@@ -39,9 +40,14 @@ def generate_launch_description():
         default_value=imu_topic,
         description='IMU topic name'
     )
+    declare_params_file_arg = DeclareLaunchArgument(
+        'params_file',
+        default_value=PathJoinSubstitution([current_pkg, 'cfg', 'dlio.yaml']),
+        description='Path to the DLIO params YAML (e.g. dlio_fairy.yaml)'
+    )
 
     # Load parameters
-    dlio_yaml_path = PathJoinSubstitution([current_pkg, 'cfg', 'dlio.yaml'])
+    dlio_yaml_path = params_file
     dlio_params_yaml_path = PathJoinSubstitution([current_pkg, 'cfg', 'params.yaml'])
 
     # DLIO Odometry Node
@@ -88,6 +94,7 @@ def generate_launch_description():
         declare_rviz_arg,
         declare_pointcloud_topic_arg,
         declare_imu_topic_arg,
+        declare_params_file_arg,
         dlio_odom_node,
         dlio_map_node,
         rviz_node

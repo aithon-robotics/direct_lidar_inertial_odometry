@@ -1,0 +1,40 @@
+###########################################################
+#                                                         #
+# Copyright (c)                                           #
+#                                                         #
+# The Verifiable & Control-Theoretic Robotics (VECTR) Lab #
+# University of California, Los Angeles                   #
+#                                                         #
+# Authors: Kenny J. Chen, Ryan Nemiroff, Brett T. Lopez   #
+# Contact: {kennyjchen, ryguyn, btlopez}@ucla.edu         #
+#                                                         #
+###########################################################
+
+/**:
+  ros__parameters:
+
+    version: 1.1.1
+
+    adaptive: true
+
+    pointcloud/deskew: true
+    pointcloud/voxelize: true
+
+    imu/calibration: true
+    imu/intrinsics/accel/bias: [ 0.0, 0.0, 0.0 ]
+    imu/intrinsics/accel/sm:   [ 1.,  0.,  0.,
+                                 0.,  1.,  0.,
+                                 0.,  0.,  1. ]
+    imu/intrinsics/gyro/bias: [ 0.0, 0.0, 0.0 ]
+
+    # RoboSense Fairy factory extrinsics (from DIFOP packet, logged at runtime)
+    # Quaternion: qx=0.001760, qy=0.000088, qz=-0.005184, qw=0.999985 (0.63 deg)
+    # IMU position in LiDAR/baselink frame: (+13.65, +7.82, +4.92) mm
+    extrinsics/baselink2imu/t: [ 0.01365, 0.00782, 0.00492 ]
+    extrinsics/baselink2imu/R: [ 0.99994624,  0.01036815,  0.00015775,
+                                 -0.01036753,  0.99994006, -0.00352086,
+                                 -0.00019425,  0.00351903,  0.99999379 ]
+    extrinsics/baselink2lidar/t: [ 0.,  0.,  0. ]
+    extrinsics/baselink2lidar/R: [ 1.,  0.,  0.,
+                                   0.,  1.,  0.,
+                                   0.,  0.,  1. ]
