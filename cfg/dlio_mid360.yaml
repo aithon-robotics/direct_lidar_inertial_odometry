@@ -27,14 +27,15 @@
                                  0.,  0.,  1. ]
     imu/intrinsics/gyro/bias: [ 0.0, 0.0, 0.0 ]
 
-    # MID360 factory extrinsics (from Livox official user manual)
-    # IMU position in LiDAR/baselink frame: (+11.0, +23.29, -44.12) mm
-    # Axes are co-aligned per Livox documentation (identity rotation)
-    extrinsics/baselink2imu/t: [ 0.011, 0.02329, -0.04412 ]
+    # MID360 mounted upside-down (180deg roll relative to base_link/FLU).
+    # Both lidar and IMU are rotated: x stays forward, y and z are flipped.
+    # IMU position in LiDAR frame: (+11.0, +23.29, -44.12) mm — but axes are
+    # also flipped by the 180deg roll, so y and z offsets negate.
+    extrinsics/baselink2imu/t: [ 0.011, -0.02329, 0.04412 ]
     extrinsics/baselink2imu/R: [ 1.,  0.,  0.,
-                                 0.,  1.,  0.,
-                                 0.,  0.,  1. ]
+                                 0., -1.,  0.,
+                                 0.,  0., -1. ]
     extrinsics/baselink2lidar/t: [ 0.,  0.,  0. ]
     extrinsics/baselink2lidar/R: [ 1.,  0.,  0.,
-                                   0.,  1.,  0.,
-                                   0.,  0.,  1. ]
+                                   0., -1.,  0.,
+                                   0.,  0., -1. ]
