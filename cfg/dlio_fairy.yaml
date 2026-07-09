@@ -34,7 +34,10 @@
     extrinsics/baselink2imu/R: [ 0.99994624,  0.01036815,  0.00015775,
                                  -0.01036753,  0.99994006, -0.00352086,
                                  -0.00019425,  0.00351903,  0.99999379 ]
-    extrinsics/baselink2lidar/t: [ 0.,  0.,  0. ]
-    extrinsics/baselink2lidar/R: [ 1.,  0.,  0.,
-                                   0.,  1.,  0.,
-                                   0.,  0.,  1. ]
+    # Fairy is mounted on the back: yaw +90deg (its own x-axis now points
+    # left), then roll -45deg about that already-yawed x-axis. Lidar origin
+    # is 28cm back / 24cm up from base_link.
+    extrinsics/baselink2lidar/t: [ -0.28,  0.,  0.24 ]
+    extrinsics/baselink2lidar/R: [ 0.,        -0.707107, -0.707107,
+                                   1.,         0.,        0.,
+                                   0.,        -0.707107,  0.707107 ]

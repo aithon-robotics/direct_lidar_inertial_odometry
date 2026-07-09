@@ -35,7 +35,10 @@
     extrinsics/baselink2imu/R: [ 1.,  0.,  0.,
                                  0., -1.,  0.,
                                  0.,  0., -1. ]
-    extrinsics/baselink2lidar/t: [ 0.,  0.,  0. ]
+    # Mid360 lidar origin is 3cm below base_link, no roll/pitch/yaw offset
+    # (mount rotation is identical to the IMU's, since both are inside the
+    # same housing).
+    extrinsics/baselink2lidar/t: [ 0.,  0., -0.03 ]
     extrinsics/baselink2lidar/R: [ 1.,  0.,  0.,
                                    0., -1.,  0.,
                                    0.,  0., -1. ]
