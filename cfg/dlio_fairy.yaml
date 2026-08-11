@@ -20,6 +20,10 @@
     pointcloud/deskew: true
     pointcloud/voxelize: true
 
+    # Only commit new keyframes to the map while PX4-armed (real-flight config;
+    # override with map.gateOnArmState:=false on the command line to test without it).
+    map/gateOnArmState: true
+
     imu/calibration: true
     imu/intrinsics/accel/bias: [ 0.0, 0.0, 0.0 ]
     imu/intrinsics/accel/sm:   [ 1.,  0.,  0.,
