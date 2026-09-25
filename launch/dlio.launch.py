@@ -23,6 +23,7 @@ def generate_launch_description():
     pointcloud_topic = LaunchConfiguration('pointcloud_topic', default='points_raw')
     imu_topic = LaunchConfiguration('imu_topic', default='imu_raw')
     params_file = LaunchConfiguration('params_file', default=PathJoinSubstitution([current_pkg, 'cfg', 'dlio.yaml']))
+    lidar_frame = LaunchConfiguration('lidar_frame', default='lidar')
 
     # Define arguments
     declare_rviz_arg = DeclareLaunchArgument(
@@ -45,6 +46,17 @@ def generate_launch_description():
         default_value=PathJoinSubstitution([current_pkg, 'cfg', 'dlio.yaml']),
         description='Path to the DLIO params YAML (e.g. dlio_fairy.yaml)'
     )
+    # Overrides params.yaml's "frames/lidar: lidar" default. Useful when the raw
+    # driver already stamps its PointCloud2 with its own frame_id (e.g. rslidar_sdk's
+    # "rslidar") - without this, DLIO's static base_link->lidar transform is published
+    # under a frame name the incoming cloud's header never uses, so nothing can
+    # actually chain "rslidar" up through base_link to odom in TF.
+    declare_lidar_frame_arg = DeclareLaunchArgument(
+        'lidar_frame',
+        default_value=lidar_frame,
+        description="TF frame name for DLIO's static base_link->lidar transform "
+                     "(should match the input PointCloud2's header.frame_id)"
+    )
 
     # Load parameters
     dlio_yaml_path = params_file
@@ -55,7 +67,8 @@ def generate_launch_description():
         package='direct_lidar_inertial_odometry',
         executable='dlio_odom_node',
         output='screen',
-        parameters=[dlio_yaml_path, dlio_params_yaml_path],
+        # lidar_frame last so it wins over params.yaml's "frames/lidar: lidar".
+        parameters=[dlio_yaml_path, dlio_params_yaml_path, {'frames/lidar': lidar_frame}],
         remappings=[
             ('pointcloud', pointcloud_topic),
             ('imu', imu_topic),
@@ -95,6 +108,7 @@ def generate_launch_description():
         declare_pointcloud_topic_arg,
         declare_imu_topic_arg,
         declare_params_file_arg,
+        declare_lidar_frame_arg,
         dlio_odom_node,
         dlio_map_node,
         rviz_node

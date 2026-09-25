@@ -20,6 +20,10 @@
     pointcloud/deskew: true
     pointcloud/voxelize: true
 
+    # Only commit new keyframes to the map while PX4-armed (real-flight config;
+    # override with map.gateOnArmState:=false on the command line to test without it).
+    map/gateOnArmState: true
+
     imu/calibration: true
     imu/intrinsics/accel/bias: [ 0.0, 0.0, 0.0 ]
     imu/intrinsics/accel/sm:   [ 1.,  0.,  0.,
@@ -31,21 +35,15 @@
     # lidar2imu quaternion qx=0.001760, qy=0.000088, qz=-0.005184, qw=0.999985 (0.63 deg),
     # IMU position (+13.65, +7.82, +4.92) mm in the LiDAR's own frame. Composed here with
     # baselink2lidar below (baselink2imu = baselink2lidar * lidar2imu) since the factory
-    # values are relative to the lidar, not base_link. baselink2lidar is the CAD mount
-    # pose (verified against a Leica MS60 total station and a hand-eye fit of the
-    # Livox/RoboSense relative rotation, see PR description) -- the factory IMU offset
-    # itself is unchanged, only the mount it's composed onto.
-    extrinsics/baselink2imu/t: [ -0.364283, -0.013150, 0.205343 ]
-    extrinsics/baselink2imu/R: [ -0.007194,  0.704576, -0.709592,
-                                 -0.999946, -0.010368, -0.000158,
-                                 -0.007468,  0.709553,  0.704613 ]
+    # values are relative to the lidar, not base_link.
+    extrinsics/baselink2imu/t: [ -0.3642834, -0.01315, 0.2053425 ]
+    extrinsics/baselink2imu/R: [ -0.0071936,  0.7045761, -0.7095920,
+                                 -0.9999462, -0.0103682, -0.0001577,
+                                 -0.0074683,  0.7095527,  0.7046128 ]
     # Fairy is mounted on the back: yaw -90deg (its own x-axis now points
-    # right), then roll +45deg about that already-yawed x-axis (CAD). Lidar origin
-    # is 366.334mm back, 0.5mm left and 196.334mm up from base_link.
-    # Was t=[-0.28, 0, 0.24] (8.6cm off in x, 4.4cm off in z vs CAD) with a rotation
-    # 180deg off about the lidar's own x-axis (x/y axes of the Fairy flipped) --
-    # see PR description for the total-station/hand-eye validation of these values.
-    extrinsics/baselink2lidar/t: [ -0.366334,  0.0005,  0.196334 ]
-    extrinsics/baselink2lidar/R: [ 0.,         0.707107, -0.707107,
-                                   -1.,        0.,        0.,
-                                    0.,        0.707107,  0.707107 ]
+    # right), then roll 45deg about that already-yawed x-axis. Lidar origin
+    # is 366.334 mm back, 0.5 mm left and 196.334 mm up from base_link.
+    extrinsics/baselink2lidar/t: [ -0.366334, 0.0005, 0.196334 ]
+    extrinsics/baselink2lidar/R: [ 0.,         0.7071068, -0.7071068,
+                                  -1.,         0.,         0.,
+                                   0.,         0.7071068,  0.7071068 ]

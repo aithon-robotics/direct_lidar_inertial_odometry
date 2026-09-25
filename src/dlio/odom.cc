@@ -30,6 +30,7 @@ dlio::OdomNode::OdomNode() : Node("dlio_odom_node") {
   else {this->imu_calibrated = true;}
   this->deskew_status = false;
   this->deskew_size = 0;
+  this->px4_armed_ = false;
 
   this->lidar_cb_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   auto lidar_sub_opt = rclcpp::SubscriptionOptions();
@@ -42,6 +43,15 @@ dlio::OdomNode::OdomNode() : Node("dlio_odom_node") {
   imu_sub_opt.callback_group = this->imu_cb_group;
   this->imu_sub = this->create_subscription<sensor_msgs::msg::Imu>("imu", rclcpp::SensorDataQoS(),
       std::bind(&dlio::OdomNode::callbackImu, this, std::placeholders::_1), imu_sub_opt);
+
+  this->vehicle_status_cb_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  auto vehicle_status_sub_opt = rclcpp::SubscriptionOptions();
+  vehicle_status_sub_opt.callback_group = this->vehicle_status_cb_group;
+  this->vehicle_status_sub = this->create_subscription<px4_msgs::msg::VehicleStatus>(
+      "/fmu/out/vehicle_status_v1", rclcpp::QoS(10).best_effort(),
+      [this](const px4_msgs::msg::VehicleStatus::SharedPtr msg) {
+        this->px4_armed_.store(msg->arming_state == px4_msgs::msg::VehicleStatus::ARMING_STATE_ARMED);
+      }, vehicle_status_sub_opt);
 
   this->odom_pub     = this->create_publisher<nav_msgs::msg::Odometry>("odom", 1);
   this->pose_pub     = this->create_publisher<geometry_msgs::msg::PoseStamped>("pose", 1);
@@ -200,6 +210,13 @@ void dlio::OdomNode::getParams() {
   // Keyframe Threshold
   dlio::declare_param(this, "odom/keyframe/threshD", this->keyframe_thresh_dist_, 0.1);
   dlio::declare_param(this, "odom/keyframe/threshR", this->keyframe_thresh_rot_, 1.0);
+  // Caps how many existing keyframes may already be within 1.5*threshD of the
+  // current position before a rotation-only trigger (dd<=threshD, theta>threshR)
+  // is allowed to add yet another one there. Default of 1 matches original
+  // behavior (one rotation-triggered "second look" per new spot, then no more).
+  // Raise it to keep taking keyframes through a large in-place rotation, e.g.
+  // for deliberate look-around/range-check scanning.
+  dlio::declare_param(this, "odom/keyframe/numNearbyMax", this->keyframe_num_nearby_max_, 1);
 
   // Submap
   dlio::declare_param(this, "odom/submap/keyframe/knn", this->submap_knn_, 10);
@@ -211,6 +228,12 @@ void dlio::OdomNode::getParams() {
 
   // Wait until movement to publish map
   dlio::declare_param(this, "map/waitUntilMove", this->wait_until_move_, false);
+
+  // Only commit new keyframes to the map while PX4-armed (default off: bench-testing
+  // without PX4 running is unaffected; enabled explicitly in the real-flight cfg yamls).
+  // Also serves as the test-deactivation switch: override with map.gateOnArmState:=false
+  // on the command line to bypass gating for a specific run without editing the yaml.
+  dlio::declare_param(this, "map/gateOnArmState", this->gate_map_on_arm_, false);
 
   // Crop Box Filter
   dlio::declare_param(this, "odom/preprocessing/cropBoxFilter/size", this->crop_size_, 1.0);
@@ -1586,6 +1609,29 @@ void dlio::OdomNode::updateKeyframes() {
   double theta_rad = 2. * atan2(sqrt( pow(dq.x(), 2) + pow(dq.y(), 2) + pow(dq.z(), 2) ), dq.w());
   double theta_deg = theta_rad * (180.0/M_PI);
 
+  // Rotation-only triggering (below) compares against the *closest* keyframe by
+  // position, which for a near-stationary rotation is an arbitrary pick among
+  // several near-tied candidates -- not necessarily the last one added. That
+  // makes rotation-triggered keyframe spacing uneven. Track the angle since the
+  // most recently added keyframe separately, and use that for the rotation
+  // trigger specifically, so e.g. threshR=45 with numNearbyMax=7 yields close to
+  // 8 evenly-spaced keyframes across a stationary 360 deg sweep instead of an
+  // arbitrary clustering.
+  double theta_deg_since_last = theta_deg;
+  if (!this->keyframes.empty()) {
+    const Eigen::Quaternionf& last_kf_r = this->keyframes.back().first.second;
+    Eigen::Quaternionf dq_last;
+    if (this->state.q.dot(last_kf_r) < 0.) {
+      Eigen::Quaternionf lq = last_kf_r;
+      lq.w() *= -1.; lq.x() *= -1.; lq.y() *= -1.; lq.z() *= -1.;
+      dq_last = this->state.q * lq.inverse();
+    } else {
+      dq_last = this->state.q * last_kf_r.inverse();
+    }
+    double theta_rad_last = 2. * atan2(sqrt( pow(dq_last.x(), 2) + pow(dq_last.y(), 2) + pow(dq_last.z(), 2) ), dq_last.w());
+    theta_deg_since_last = theta_rad_last * (180.0/M_PI);
+  }
+
   // update keyframes
   bool newKeyframe = false;
 
@@ -1597,11 +1643,16 @@ void dlio::OdomNode::updateKeyframes() {
     newKeyframe = false;
   }
 
-  if (abs(dd) <= this->keyframe_thresh_dist_ && abs(theta_deg) > this->keyframe_thresh_rot_ && num_nearby <= 1) {
+  if (abs(dd) <= this->keyframe_thresh_dist_ && abs(theta_deg_since_last) > this->keyframe_thresh_rot_ && num_nearby <= this->keyframe_num_nearby_max_) {
     newKeyframe = true;
   }
 
-  if (newKeyframe) {
+  // Gated by map/gateOnArmState: while enabled and disarmed, odometry/pose tracking
+  // continues normally but no new keyframe is committed, so nothing new gets baked
+  // into the map (e.g. people near the drone during maintenance). The very first
+  // keyframe (bootstrap, in initializeInputTarget()) is not gated since odometry
+  // cannot start tracking without it.
+  if (newKeyframe && (!this->gate_map_on_arm_ || this->px4_armed_.load())) {
 
     // update keyframe vector
     std::unique_lock<decltype(this->keyframes_mutex)> lock(this->keyframes_mutex);

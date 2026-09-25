@@ -21,6 +21,7 @@
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <tf2_ros/transform_broadcaster.h>
+#include <px4_msgs/msg/vehicle_status.hpp>
 
 // BOOST
 #include <boost/format.hpp>
@@ -113,7 +114,8 @@ private:
   // Subscribers
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub;
-  rclcpp::CallbackGroup::SharedPtr lidar_cb_group, imu_cb_group;
+  rclcpp::Subscription<px4_msgs::msg::VehicleStatus>::SharedPtr vehicle_status_sub;
+  rclcpp::CallbackGroup::SharedPtr lidar_cb_group, imu_cb_group, vehicle_status_cb_group;
 
   // Publishers
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub;
@@ -141,6 +143,7 @@ private:
   std::atomic<bool> gicp_hasConverged;
   std::atomic<bool> deskew_status;
   std::atomic<int> deskew_size;
+  std::atomic<bool> px4_armed_;
 
   // Threads
   std::thread publish_thread;
@@ -325,6 +328,7 @@ private:
 
   double keyframe_thresh_dist_;
   double keyframe_thresh_rot_;
+  int keyframe_num_nearby_max_;
 
   int submap_knn_;
   int submap_kcv_;
@@ -333,6 +337,7 @@ private:
 
   bool densemap_filtered_;
   bool wait_until_move_;
+  bool gate_map_on_arm_;
 
   double crop_size_;
 
