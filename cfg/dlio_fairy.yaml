@@ -43,7 +43,7 @@
     # right), then roll +45deg about that already-yawed x-axis (CAD). Lidar origin
     # is 366.334mm back, 0.5mm left and 196.334mm up from base_link.
     # Was t=[-0.28, 0, 0.24] (8.6cm off in x, 4.4cm off in z vs CAD) with a rotation
-    # 180deg off about the lidar's own x-axis (x/y axes of the Airy flipped) --
+    # 180deg off about the lidar's own x-axis (x/y axes of the Fairy flipped) --
     # see PR description for the total-station/hand-eye validation of these values.
     extrinsics/baselink2lidar/t: [ -0.366334,  0.0005,  0.196334 ]
     extrinsics/baselink2lidar/R: [ 0.,         0.707107, -0.707107,
