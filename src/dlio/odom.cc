@@ -30,6 +30,7 @@ dlio::OdomNode::OdomNode() : Node("dlio_odom_node") {
   else {this->imu_calibrated = true;}
   this->deskew_status = false;
   this->deskew_size = 0;
+  this->px4_armed_ = false;
 
   this->lidar_cb_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   auto lidar_sub_opt = rclcpp::SubscriptionOptions();
@@ -42,6 +43,15 @@ dlio::OdomNode::OdomNode() : Node("dlio_odom_node") {
   imu_sub_opt.callback_group = this->imu_cb_group;
   this->imu_sub = this->create_subscription<sensor_msgs::msg::Imu>("imu", rclcpp::SensorDataQoS(),
       std::bind(&dlio::OdomNode::callbackImu, this, std::placeholders::_1), imu_sub_opt);
+
+  this->vehicle_status_cb_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  auto vehicle_status_sub_opt = rclcpp::SubscriptionOptions();
+  vehicle_status_sub_opt.callback_group = this->vehicle_status_cb_group;
+  this->vehicle_status_sub = this->create_subscription<px4_msgs::msg::VehicleStatus>(
+      "/fmu/out/vehicle_status_v1", rclcpp::QoS(10).best_effort(),
+      [this](const px4_msgs::msg::VehicleStatus::SharedPtr msg) {
+        this->px4_armed_.store(msg->arming_state == px4_msgs::msg::VehicleStatus::ARMING_STATE_ARMED);
+      }, vehicle_status_sub_opt);
 
   this->odom_pub     = this->create_publisher<nav_msgs::msg::Odometry>("odom", 1);
   this->pose_pub     = this->create_publisher<geometry_msgs::msg::PoseStamped>("pose", 1);
@@ -211,6 +221,12 @@ void dlio::OdomNode::getParams() {
 
   // Wait until movement to publish map
   dlio::declare_param(this, "map/waitUntilMove", this->wait_until_move_, false);
+
+  // Only commit new keyframes to the map while PX4-armed (default off: bench-testing
+  // without PX4 running is unaffected; enabled explicitly in the real-flight cfg yamls).
+  // Also serves as the test-deactivation switch: override with map.gateOnArmState:=false
+  // on the command line to bypass gating for a specific run without editing the yaml.
+  dlio::declare_param(this, "map/gateOnArmState", this->gate_map_on_arm_, false);
 
   // Crop Box Filter
   dlio::declare_param(this, "odom/preprocessing/cropBoxFilter/size", this->crop_size_, 1.0);
@@ -1601,7 +1617,12 @@ void dlio::OdomNode::updateKeyframes() {
     newKeyframe = true;
   }
 
-  if (newKeyframe) {
+  // Gated by map/gateOnArmState: while enabled and disarmed, odometry/pose tracking
+  // continues normally but no new keyframe is committed, so nothing new gets baked
+  // into the map (e.g. people near the drone during maintenance). The very first
+  // keyframe (bootstrap, in initializeInputTarget()) is not gated since odometry
+  // cannot start tracking without it.
+  if (newKeyframe && (!this->gate_map_on_arm_ || this->px4_armed_.load())) {
 
     // update keyframe vector
     std::unique_lock<decltype(this->keyframes_mutex)> lock(this->keyframes_mutex);
