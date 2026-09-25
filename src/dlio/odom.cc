@@ -210,6 +210,13 @@ void dlio::OdomNode::getParams() {
   // Keyframe Threshold
   dlio::declare_param(this, "odom/keyframe/threshD", this->keyframe_thresh_dist_, 0.1);
   dlio::declare_param(this, "odom/keyframe/threshR", this->keyframe_thresh_rot_, 1.0);
+  // Caps how many existing keyframes may already be within 1.5*threshD of the
+  // current position before a rotation-only trigger (dd<=threshD, theta>threshR)
+  // is allowed to add yet another one there. Default of 1 matches original
+  // behavior (one rotation-triggered "second look" per new spot, then no more).
+  // Raise it to keep taking keyframes through a large in-place rotation, e.g.
+  // for deliberate look-around/range-check scanning.
+  dlio::declare_param(this, "odom/keyframe/numNearbyMax", this->keyframe_num_nearby_max_, 1);
 
   // Submap
   dlio::declare_param(this, "odom/submap/keyframe/knn", this->submap_knn_, 10);
@@ -1602,6 +1609,29 @@ void dlio::OdomNode::updateKeyframes() {
   double theta_rad = 2. * atan2(sqrt( pow(dq.x(), 2) + pow(dq.y(), 2) + pow(dq.z(), 2) ), dq.w());
   double theta_deg = theta_rad * (180.0/M_PI);
 
+  // Rotation-only triggering (below) compares against the *closest* keyframe by
+  // position, which for a near-stationary rotation is an arbitrary pick among
+  // several near-tied candidates -- not necessarily the last one added. That
+  // makes rotation-triggered keyframe spacing uneven. Track the angle since the
+  // most recently added keyframe separately, and use that for the rotation
+  // trigger specifically, so e.g. threshR=45 with numNearbyMax=7 yields close to
+  // 8 evenly-spaced keyframes across a stationary 360 deg sweep instead of an
+  // arbitrary clustering.
+  double theta_deg_since_last = theta_deg;
+  if (!this->keyframes.empty()) {
+    const Eigen::Quaternionf& last_kf_r = this->keyframes.back().first.second;
+    Eigen::Quaternionf dq_last;
+    if (this->state.q.dot(last_kf_r) < 0.) {
+      Eigen::Quaternionf lq = last_kf_r;
+      lq.w() *= -1.; lq.x() *= -1.; lq.y() *= -1.; lq.z() *= -1.;
+      dq_last = this->state.q * lq.inverse();
+    } else {
+      dq_last = this->state.q * last_kf_r.inverse();
+    }
+    double theta_rad_last = 2. * atan2(sqrt( pow(dq_last.x(), 2) + pow(dq_last.y(), 2) + pow(dq_last.z(), 2) ), dq_last.w());
+    theta_deg_since_last = theta_rad_last * (180.0/M_PI);
+  }
+
   // update keyframes
   bool newKeyframe = false;
 
@@ -1613,7 +1643,7 @@ void dlio::OdomNode::updateKeyframes() {
     newKeyframe = false;
   }
 
-  if (abs(dd) <= this->keyframe_thresh_dist_ && abs(theta_deg) > this->keyframe_thresh_rot_ && num_nearby <= 1) {
+  if (abs(dd) <= this->keyframe_thresh_dist_ && abs(theta_deg_since_last) > this->keyframe_thresh_rot_ && num_nearby <= this->keyframe_num_nearby_max_) {
     newKeyframe = true;
   }
 

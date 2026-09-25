@@ -328,6 +328,7 @@ private:
 
   double keyframe_thresh_dist_;
   double keyframe_thresh_rot_;
+  int keyframe_num_nearby_max_;
 
   int submap_knn_;
   int submap_kcv_;

@@ -1,0 +1,65 @@
+###########################################################
+#                                                         #
+# Copyright (c)                                           #
+#                                                         #
+# The Verifiable & Control-Theoretic Robotics (VECTR) Lab #
+# University of California, Los Angeles                   #
+#                                                         #
+# Authors: Kenny J. Chen, Ryan Nemiroff, Brett T. Lopez   #
+# Contact: {kennyjchen, ryguyn, btlopez}@ucla.edu         #
+#                                                         #
+###########################################################
+
+# *** TEST CONFIG -- bag replay / bench testing only, not for real flights ***
+#
+# Copy of dlio_fairy.yaml with the fixes found while evaluating recorded bags
+# offline (map/gateOnArmState, use_sim_time, adaptive) plus a raised
+# odom/keyframe/numNearbyMax for deliberate look-around/range-check scanning.
+# dlio_fairy.yaml itself is untouched and remains the real-flight config.
+
+/**:
+  ros__parameters:
+
+    version: 1.1.1
+
+    use_sim_time: true
+
+    adaptive: false
+
+    pointcloud/deskew: true
+    pointcloud/voxelize: true
+
+    # false here (vs. true in dlio_fairy.yaml): bag replay has no PX4-armed signal,
+    # so with this left true exactly one keyframe ever gets committed for the
+    # whole run and odometry free-falls into open-loop IMU drift.
+    map/gateOnArmState: false
+
+    # Raised from the default of 1: allow up to 8 keyframes to accumulate at one
+    # spot (7 already there + 1 new) instead of just 2, so a deliberate in-place
+    # rotation sweep (e.g. threshR=45 across a full 360) keeps taking keyframes
+    # instead of stopping after the first one or two.
+    odom/keyframe/numNearbyMax: 7
+
+    imu/calibration: true
+    imu/intrinsics/accel/bias: [ 0.0, 0.0, 0.0 ]
+    imu/intrinsics/accel/sm:   [ 1.,  0.,  0.,
+                                 0.,  1.,  0.,
+                                 0.,  0.,  1. ]
+    imu/intrinsics/gyro/bias: [ 0.0, 0.0, 0.0 ]
+
+    # RoboSense Fairy factory extrinsics (from DIFOP packet, logged at runtime):
+    # lidar2imu quaternion qx=0.001760, qy=0.000088, qz=-0.005184, qw=0.999985 (0.63 deg),
+    # IMU position (+13.65, +7.82, +4.92) mm in the LiDAR's own frame. Composed here with
+    # baselink2lidar below (baselink2imu = baselink2lidar * lidar2imu) since the factory
+    # values are relative to the lidar, not base_link.
+    extrinsics/baselink2imu/t: [ -0.289009, 0.01365, 0.237949 ]
+    extrinsics/baselink2imu/R: [  0.0074683, -0.7095530, -0.7046130,
+                                  0.9999462,  0.0103682,  0.0001578,
+                                  0.0071936, -0.7045763,  0.7095922 ]
+    # Fairy is mounted on the back: yaw +90deg (its own x-axis now points
+    # left), then roll -45deg about that already-yawed x-axis. Lidar origin
+    # is 28cm back / 24cm up from base_link.
+    extrinsics/baselink2lidar/t: [ -0.28,  0.,  0.24 ]
+    extrinsics/baselink2lidar/R: [ 0.,        -0.707107, -0.707107,
+                                   1.,         0.,        0.,
+                                   0.,        -0.707107,  0.707107 ]
