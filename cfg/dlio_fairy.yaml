@@ -36,14 +36,15 @@
     # IMU position (+13.65, +7.82, +4.92) mm in the LiDAR's own frame. Composed here with
     # baselink2lidar below (baselink2imu = baselink2lidar * lidar2imu) since the factory
     # values are relative to the lidar, not base_link.
-    extrinsics/baselink2imu/t: [ -0.3642834, -0.01315, 0.2053425 ]
-    extrinsics/baselink2imu/R: [ -0.0071936,  0.7045761, -0.7095920,
+    extrinsics/baselink2imu/t: [ -0.3653527, -0.01315, 0.2047097 ]
+    extrinsics/baselink2imu/R: [ -0.0068678,  0.6736004, -0.7390638,
                                  -0.9999462, -0.0103682, -0.0001577,
-                                 -0.0074683,  0.7095527,  0.7046128 ]
+                                 -0.0077690,  0.7390230,  0.6736354 ]
     # Fairy is mounted on the back: yaw -90deg (its own x-axis now points
-    # right), then roll 45deg about that already-yawed x-axis. Lidar origin
-    # is 366.334 mm back, 0.5 mm left and 196.334 mm up from base_link.
-    extrinsics/baselink2lidar/t: [ -0.366334, 0.0005, 0.196334 ]
-    extrinsics/baselink2lidar/R: [ 0.,         0.7071068, -0.7071068,
-                                  -1.,         0.,         0.,
-                                   0.,         0.7071068,  0.7071068 ]
+    # right), then roll 47.45deg about that already-yawed x-axis. Lidar origin
+    # is 367.017 mm back, 0.5 mm left and 195.621 mm up from base_link
+    # (atn_hummel_description mount profile "current", valid from 2026-09-15).
+    extrinsics/baselink2lidar/t: [ -0.367017, 0.0005, 0.195621 ]
+    extrinsics/baselink2lidar/R: [  0.0000000,  0.6762333, -0.7366875,
+                                   -1.0000000,  0.0000000,  0.0000000,
+                                    0.0000000,  0.7366875,  0.6762333 ]
